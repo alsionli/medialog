@@ -25,6 +25,31 @@ The app uses [The Movie Database (TMDB) API](https://www.themoviedb.org/document
 
 Without `VITE_TMDB_API_KEY`, the screen category will show fallback curated suggestions and search will return no results.
 
+## Deploy to GitHub & Vercel
+
+### 1. Push to GitHub
+
+```bash
+# Create a new repo on GitHub (github.com/new), then:
+git remote add origin https://github.com/YOUR_USERNAME/media-log-app.git
+git branch -M main
+git push -u origin main
+```
+
+### 2. Deploy to Vercel
+
+1. Go to [vercel.com](https://vercel.com) and sign in with GitHub
+2. Click **Add New** → **Project**
+3. Import your `media-log-app` repository
+4. Vercel will auto-detect Vite. Build settings:
+   - **Framework Preset**: Vite
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+5. (Optional) Add **Environment Variable**: `VITE_TMDB_API_KEY` = your API key
+6. Click **Deploy**
+
+Your app will be live at `https://your-project.vercel.app`. Each push to `main` triggers a new deployment.
+
 ---
 
 # React + TypeScript + Vite

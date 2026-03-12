@@ -8,14 +8,20 @@ function mapTmdbPoster(path?: string | null) {
   return path ? `${TMDB_IMAGE_BASE}${path}` : undefined
 }
 
+const getTmdbUrl = (path: string, params?: Record<string, string>) => {
+  const url = new URL(`/api/tmdb/${path}`, window.location.origin)
+  Object.entries(params ?? {}).forEach(([k, v]) => {
+    if (v) url.searchParams.set(k, v)
+  })
+  return url.toString()
+}
+
 async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
   if (!TMDB_API_KEY) {
     return fallbackSuggestions.screen
   }
 
-  const response = await fetch(
-    `https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}`,
-  )
+  const response = await fetch(getTmdbUrl('trending/all/week'))
 
   if (!response.ok) {
     throw new Error('Failed to fetch TMDB trending titles.')
@@ -166,7 +172,10 @@ async function searchScreen(query: string): Promise<MediaSuggestion[]> {
   if (!TMDB_API_KEY) return []
 
   const response = await fetch(
-    `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=false`,
+    getTmdbUrl('search/multi', {
+      query,
+      include_adult: 'false',
+    }),
   )
 
   if (!response.ok) return []

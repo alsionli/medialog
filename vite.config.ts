@@ -25,6 +25,18 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: () => `/3/trending/all/week?api_key=${apiKey}`,
         },
+        '/api/tmdb-details': {
+          target: 'https://api.themoviedb.org',
+          changeOrigin: true,
+          configure: (proxy: any) => {
+            proxy.on('proxyReq', (proxyReq: any, req: any) => {
+              const url = new URL(req.url || '/', 'http://localhost')
+              const type = url.searchParams.get('type') || 'movie'
+              const id = url.searchParams.get('id') || ''
+              proxyReq.path = `/3/${type}/${id}?api_key=${apiKey}`
+            })
+          },
+        },
       }
     : undefined
 

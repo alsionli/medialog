@@ -20,17 +20,17 @@ interface EntryDraft {
   coverUrl: string
   sourceLabel: string
   sourceUrl: string
+  tags: string[]
+  duration: number
 }
 
 interface AddEntryModalProps {
   open: boolean
   draft: EntryDraft
   suggestions: MediaSuggestion[]
-  loading: boolean
   searchQuery: string
   onSearchQueryChange: (query: string) => void
   searchResults: MediaSuggestion[]
-  searchLoading: boolean
   addStep: 1 | 2
   onBackToSearch: () => void
   onClose: () => void
@@ -46,11 +46,9 @@ export function AddEntryModal({
   open,
   draft,
   suggestions,
-  loading,
   searchQuery,
   onSearchQueryChange,
   searchResults,
-  searchLoading,
   addStep,
   onBackToSearch,
   onClose,
@@ -64,7 +62,6 @@ export function AddEntryModal({
   }
 
   const displayItems = searchQuery.trim() ? searchResults : suggestions.slice(0, 3)
-  const displayLoading = searchQuery.trim() ? searchLoading : loading
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
@@ -143,14 +140,6 @@ export function AddEntryModal({
                   <p className="section-label">
                     {searchQuery.trim() ? 'Search results' : 'Trending picks'}
                   </p>
-                  <span className="suggestions-status">
-                    <SearchLine size={14} strokeWidth={1.2} />
-                    {displayLoading
-                      ? searchQuery.trim()
-                        ? 'Searching...'
-                        : 'Loading live picks...'
-                      : 'Click a card to select'}
-                  </span>
                 </div>
 
                 <div className="suggestion-scroller">
@@ -190,6 +179,15 @@ export function AddEntryModal({
                   <div className="selected-preview__text">
                     <strong>{draft.title}</strong>
                     <span>{draft.creator}</span>
+                    {draft.tags?.length ? (
+                      <div className="selected-preview__tags">
+                        {draft.tags.map((tag) => (
+                          <span key={tag} className="selected-preview__tag">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

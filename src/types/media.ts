@@ -13,6 +13,8 @@ export interface MediaSuggestion {
   sourceLabel: string
   sourceUrl?: string
   subtitle?: string
+  tags?: string[]
+  duration?: number
 }
 
 export interface LogEntry {
@@ -28,4 +30,6 @@ export interface LogEntry {
   source: TrendSource
   sourceLabel: string
   sourceUrl?: string
+  tags?: string[]
+  duration?: number
 }

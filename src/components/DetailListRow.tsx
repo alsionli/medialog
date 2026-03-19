@@ -1,4 +1,4 @@
-import { StarFill, StarLine } from '@mingcute/react'
+import { DeleteLine, StarFill, StarLine } from '@mingcute/react'
 
 import { getCoverUrl } from '../lib/cover'
 import type { MediaCategory } from '../types/media'
@@ -11,6 +11,8 @@ interface DetailListRowProps {
   loggedAt?: string
   rating?: number
   coverUrl?: string
+  entryId?: string
+  onDelete?: (id: string) => void
 }
 
 function DotVisual({ category }: { category: MediaCategory }) {
@@ -35,6 +37,8 @@ export function DetailListRow({
   loggedAt,
   rating = 0,
   coverUrl,
+  entryId,
+  onDelete,
 }: DetailListRowProps) {
   return (
     <article className="detail-row">
@@ -49,14 +53,29 @@ export function DetailListRow({
         <div className="detail-row__time">Added {formatAddedTime(loggedAt)}</div>
       </div>
 
-      <div className="detail-row__rating" aria-label={`${rating} stars`}>
-        {[1, 2, 3, 4, 5].map((star) =>
-          rating >= star ? (
-            <StarFill key={star} size={18} strokeWidth={1.2} />
-          ) : (
-            <StarLine key={star} size={18} strokeWidth={1.2} />
-          ),
-        )}
+      <div className="detail-row__actions">
+        <div className="detail-row__rating" aria-label={`${rating} stars`}>
+          {[1, 2, 3, 4, 5].map((star) =>
+            rating >= star ? (
+              <StarFill key={star} size={18} strokeWidth={1.2} />
+            ) : (
+              <StarLine key={star} size={18} strokeWidth={1.2} />
+            ),
+          )}
+        </div>
+        {entryId && onDelete ? (
+          <button
+            className="detail-row__delete"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(entryId)
+            }}
+            aria-label={`Delete ${title}`}
+          >
+            <DeleteLine size={16} strokeWidth={1.2} />
+          </button>
+        ) : null}
       </div>
     </article>
   )

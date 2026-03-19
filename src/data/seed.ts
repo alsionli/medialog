@@ -45,12 +45,9 @@ export const categoryDetailMeta: Record<
   MediaCategory,
   {
     title: string
-    topMetricLabel: string
-    topMetricValue: string
     listTitle: string
     listWindowLabel: string
     genreTitle: string
-    genreLegend: string
     tickerStatus: string
     tickerText: string
     rowMetricLabel: string
@@ -58,36 +55,27 @@ export const categoryDetailMeta: Record<
 > = {
   album: {
     title: 'Albums',
-    topMetricLabel: 'Avg. Daily Hours',
-    topMetricValue: '4.2h',
     listTitle: 'Recent Rotations',
     listWindowLabel: 'Last 30 Days',
     genreTitle: 'Top Genres',
-    genreLegend: 'Electronic (42%)',
     tickerStatus: 'Now Playing',
     tickerText: "Texas Hold 'Em — Beyonce",
     rowMetricLabel: 'Play time',
   },
   screen: {
     title: 'Movies',
-    topMetricLabel: 'Avg. Daily Hours',
-    topMetricValue: '2.7h',
     listTitle: 'Recent Watches',
     listWindowLabel: 'Last 30 Days',
     genreTitle: 'Top Genres',
-    genreLegend: 'Drama (38%)',
     tickerStatus: 'Now Watching',
     tickerText: 'Shogun — Episode 07',
     rowMetricLabel: 'Runtime',
   },
   book: {
     title: 'Books',
-    topMetricLabel: 'Avg. Daily Pages',
-    topMetricValue: '84p',
     listTitle: 'Recent Reads',
     listWindowLabel: 'Last 30 Days',
     genreTitle: 'Top Genres',
-    genreLegend: 'Literary Fiction (47%)',
     tickerStatus: 'Now Reading',
     tickerText: 'North Woods — Daniel Mason',
     rowMetricLabel: 'Session',
@@ -105,7 +93,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Sci-fi epic',
+      tags: ['Sci-Fi', 'Adventure', 'Drama'],
+      duration: 2.7,
     },
     {
       id: 'screen-past-lives',
@@ -116,7 +105,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://image.tmdb.org/t/p/w500/k3waqVXSnvCZWfJYNtdamTgTtTA.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Romantic drama',
+      tags: ['Romance', 'Drama'],
+      duration: 1.9,
     },
     {
       id: 'screen-shogun',
@@ -127,7 +117,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://image.tmdb.org/t/p/w500/8T39W6oVSeiLKnkWKlz4dGCdR4H.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Historical series',
+      tags: ['Drama', 'History'],
+      duration: 2,
     },
   ],
   book: [
@@ -140,7 +131,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://covers.openlibrary.org/b/isbn/9780241353936-L.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Literary fiction',
+      tags: ['Literary fiction'],
+      duration: 656,
     },
     {
       id: 'book-yellowface',
@@ -151,7 +143,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://covers.openlibrary.org/b/isbn/9780063250833-L.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Satire',
+      tags: ['Satire'],
+      duration: 336,
     },
     {
       id: 'book-north-woods',
@@ -162,7 +155,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://covers.openlibrary.org/b/isbn/9780593597033-L.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Multi-generational novel',
+      tags: ['Literary fiction'],
+      duration: 384,
     },
   ],
   album: [
@@ -175,7 +169,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/50/a5/ed/50a5ed91-1af2-5ec5-a00b-fd88eb39d93c/196871104003.jpg/600x600bb.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Country pop',
+      tags: ['Country', 'Pop'],
+      duration: 1.2,
     },
     {
       id: 'album-wall-of-eyes',
@@ -186,7 +181,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/ef/1d/26/ef1d264d-f498-c6c2-0faa-cbc0aee78f20/191404139195.png/600x600bb.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Alternative',
+      tags: ['Alternative'],
+      duration: 0.5,
     },
     {
       id: 'album-blue-lips',
@@ -197,7 +193,8 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       coverUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/f5/79/0e/f5790eb8-2f31-ed34-3f0f-88689b6c6fe0/24UM1IM06988.rgb.jpg/600x600bb.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
-      subtitle: 'Hip-hop',
+      tags: ['Hip-Hop'],
+      duration: 0.6,
     },
   ],
 }
@@ -215,6 +212,8 @@ export const initialEntries: LogEntry[] = [
     coverUrl: fallbackSuggestions.screen[1].coverUrl,
     source: 'manual',
     sourceLabel: 'Curated fallback',
+    tags: ['Romance', 'Drama'],
+    duration: 1.9,
   },
   {
     id: 'entry-2',
@@ -228,6 +227,8 @@ export const initialEntries: LogEntry[] = [
     coverUrl: fallbackSuggestions.album[1].coverUrl,
     source: 'manual',
     sourceLabel: 'Curated fallback',
+    tags: ['Alternative'],
+    duration: 0.5,
   },
   {
     id: 'entry-3',
@@ -241,6 +242,8 @@ export const initialEntries: LogEntry[] = [
     coverUrl: fallbackSuggestions.book[0].coverUrl,
     source: 'manual',
     sourceLabel: 'Curated fallback',
+    tags: ['Literary fiction'],
+    duration: 656,
   },
   {
     id: 'entry-4',
@@ -254,5 +257,7 @@ export const initialEntries: LogEntry[] = [
     coverUrl: fallbackSuggestions.screen[0].coverUrl,
     source: 'manual',
     sourceLabel: 'Curated fallback',
+    tags: ['Sci-Fi', 'Adventure', 'Drama'],
+    duration: 2.7,
   },
 ]

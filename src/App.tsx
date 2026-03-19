@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Route, Routes, useNavigate } from 'react-router-dom'
 
 import './App.css'
 import { AddEntryModal } from './components/AddEntryModal'
 import { categoryMeta } from './data/seed'
+import { fetchTagsForEntry } from './lib/fetchTags'
 import { loadEntries, saveEntries } from './lib/storage'
 import { fetchTrendingByCategory, searchByCategory } from './lib/trending'
 import { ArchiveHomePage } from './pages/ArchiveHomePage'
@@ -12,6 +13,29 @@ import type { LogEntry, MediaCategory, MediaSuggestion } from './types/media'
 
 type TrendingState = Record<MediaCategory, MediaSuggestion[]>
 type LoadingState = Record<MediaCategory, boolean>
+
+const DEFAULT_DURATION: Record<MediaCategory, number> = {
+  screen: 2,
+  album: 0.5,
+  book: 300,
+}
+
+function hasApiSourceUrl(entry: LogEntry): boolean {
+  const url = entry.sourceUrl?.trim()
+  if (!url) return false
+  return (
+    entry.source === 'tmdb' ||
+    entry.source === 'openlibrary' ||
+    entry.source === 'apple-music' ||
+    url.includes('themoviedb.org') ||
+    url.includes('openlibrary.org') ||
+    url.includes('apple.com')
+  )
+}
+
+function needsTagMigration(entry: LogEntry): boolean {
+  return hasApiSourceUrl(entry)
+}
 
 interface EntryDraft {
   category: MediaCategory
@@ -23,6 +47,8 @@ interface EntryDraft {
   coverUrl: string
   sourceLabel: string
   sourceUrl: string
+  tags: string[]
+  duration: number
 }
 
 function createEmptyDraft(category: MediaCategory): EntryDraft {
@@ -36,6 +62,8 @@ function createEmptyDraft(category: MediaCategory): EntryDraft {
     coverUrl: '',
     sourceLabel: categoryMeta[category].sourceHint,
     sourceUrl: '',
+    tags: [],
+    duration: DEFAULT_DURATION[category],
   }
 }
 
@@ -49,18 +77,54 @@ function App() {
     book: [],
     album: [],
   })
-  const [loadingByCategory, setLoadingByCategory] = useState<LoadingState>({
+  const [, setLoadingByCategory] = useState<LoadingState>({
     screen: true,
     book: true,
     album: true,
   })
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MediaSuggestion[]>([])
-  const [searchLoading, setSearchLoading] = useState(false)
+  const [, setSearchLoading] = useState(false)
   const [addStep, setAddStep] = useState<1 | 2>(1)
 
   useEffect(() => {
     saveEntries(entries)
+  }, [entries])
+
+  const fetchedIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const toMigrate = entries.filter((e) => needsTagMigration(e) && !fetchedIdsRef.current.has(e.id))
+    if (toMigrate.length === 0) return
+
+    toMigrate.forEach((e) => fetchedIdsRef.current.add(e.id))
+    let cancelled = false
+    Promise.all(
+      toMigrate.map(async (entry) => {
+        const tags = await fetchTagsForEntry(entry)
+        return { entry, tags }
+      }),
+    ).then((results) => {
+      if (cancelled) return
+      const updated = results.filter((r) => r.tags.length > 0)
+      if (updated.length === 0) return
+      setEntries((current) => {
+        let changed = false
+        const next = current.map((e) => {
+          const found = updated.find((u) => u.entry.id === e.id)
+          if (!found) return e
+          const same = found.tags.length === e.tags?.length && found.tags.every((t, i) => t === e.tags?.[i])
+          if (same) return e
+          changed = true
+          return { ...e, tags: found.tags }
+        })
+        return changed ? next : current
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [entries])
 
   useEffect(() => {
@@ -133,6 +197,8 @@ function App() {
       coverUrl: item.coverUrl ?? '',
       sourceLabel: item.sourceLabel,
       sourceUrl: item.sourceUrl ?? '',
+      tags: item.tags ?? [],
+      duration: item.duration ?? DEFAULT_DURATION[item.category],
     })
     setAddStep(2)
   }
@@ -147,6 +213,10 @@ function App() {
       ...current,
       [field]: value,
     }))
+  }
+
+  function handleDeleteEntry(id: string) {
+    setEntries((current) => current.filter((e) => e.id !== id))
   }
 
   function handleSubmit() {
@@ -173,6 +243,8 @@ function App() {
             : 'manual',
       sourceLabel: 'Manual entry',
       sourceUrl: draft.sourceUrl.trim() || undefined,
+      tags: draft.tags?.length ? draft.tags : undefined,
+      duration: draft.duration,
     }
 
     setEntries((current) => [nextEntry, ...current])
@@ -207,6 +279,7 @@ function App() {
                   .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt))}
                 trending={trending[category]}
                 onOpenModal={openModal}
+                onDeleteEntry={handleDeleteEntry}
               />
             }
           />
@@ -217,11 +290,9 @@ function App() {
         open={modalOpen}
         draft={draft}
         suggestions={modalSuggestions}
-        loading={loadingByCategory[draft.category]}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         searchResults={searchResults}
-        searchLoading={searchLoading}
         addStep={addStep}
         onBackToSearch={() => setAddStep(1)}
         onClose={handleCloseModal}

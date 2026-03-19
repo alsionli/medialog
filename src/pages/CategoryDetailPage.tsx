@@ -2,7 +2,8 @@ import { AddLine, ArrowLeftLine } from '@mingcute/react'
 import { Link } from 'react-router-dom'
 
 import { DetailListRow } from '../components/DetailListRow'
-import { categoryDetailMeta } from '../data/seed'
+import { categoryDetailMeta, categoryMeta } from '../data/seed'
+import { computeTopGenre, computeTopMetric } from '../lib/stats'
 import type { LogEntry, MediaCategory, MediaSuggestion } from '../types/media'
 
 interface CategoryDetailPageProps {
@@ -10,6 +11,7 @@ interface CategoryDetailPageProps {
   entries: LogEntry[]
   trending: MediaSuggestion[]
   onOpenModal: (category: MediaCategory) => void
+  onDeleteEntry: (id: string) => void
 }
 
 function isLogEntry(item: LogEntry | MediaSuggestion): item is LogEntry {
@@ -21,9 +23,12 @@ export function CategoryDetailPage({
   entries,
   trending,
   onOpenModal,
+  onDeleteEntry,
 }: CategoryDetailPageProps) {
   const meta = categoryDetailMeta[category]
   const rowItems = entries.length > 0 ? entries : trending.slice(0, 3)
+  const topMetric = computeTopMetric(entries, category)
+  const topGenre = computeTopGenre(entries)
 
   return (
     <main className="detail-shell">
@@ -47,6 +52,7 @@ export function CategoryDetailPage({
           <div className="detail-section">
             <div className="detail-section__header">
               <h2>{meta.listTitle}</h2>
+              <span className="detail-section__count">{entries.length} {categoryMeta[category].actionLabel}</span>
             </div>
 
             <div className="detail-list">
@@ -60,6 +66,8 @@ export function CategoryDetailPage({
                   loggedAt={isLogEntry(item) ? item.loggedAt : undefined}
                   rating={isLogEntry(item) ? item.rating : undefined}
                   coverUrl={'coverUrl' in item ? item.coverUrl : undefined}
+                  entryId={isLogEntry(item) ? item.id : undefined}
+                  onDelete={isLogEntry(item) ? onDeleteEntry : undefined}
                 />
               ))}
             </div>
@@ -67,8 +75,8 @@ export function CategoryDetailPage({
 
           <div className="detail-sidebar">
             <div className="daily-average-card">
-              <h3>{meta.topMetricLabel}</h3>
-              <div className="daily-average-card__value">{meta.topMetricValue}</div>
+              <h3>{topMetric.label}</h3>
+              <div className="daily-average-card__value">{topMetric.value}</div>
             </div>
 
             <div className="genre-card">
@@ -81,7 +89,7 @@ export function CategoryDetailPage({
               </div>
               <div className="genre-legend">
                 <div className="genre-legend__dot" />
-                <span>{meta.genreLegend}</span>
+                <span>{topGenre}</span>
               </div>
             </div>
           </div>

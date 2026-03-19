@@ -20,6 +20,42 @@ function mapTmdbPoster(path?: string | null) {
   return path ? `${TMDB_IMAGE_BASE}${path}` : undefined
 }
 
+const TMDB_GENRE_MAP: Record<number, string> = {
+  28: 'Action',
+  12: 'Adventure',
+  16: 'Animation',
+  35: 'Comedy',
+  80: 'Crime',
+  99: 'Documentary',
+  18: 'Drama',
+  10751: 'Family',
+  14: 'Fantasy',
+  27: 'Horror',
+  10402: 'Music',
+  9648: 'Mystery',
+  10749: 'Romance',
+  878: 'Sci-Fi',
+  53: 'Thriller',
+  10752: 'War',
+  37: 'Western',
+  10759: 'Action & Adventure',
+  10762: 'Kids',
+  10763: 'News',
+  10764: 'Reality',
+  10765: 'Sci-Fi & Fantasy',
+  10766: 'Soap',
+  10767: 'Talk',
+  10768: 'War & Politics',
+}
+
+function mapGenreIds(ids?: number[]): string[] {
+  if (!ids?.length) return []
+  return ids
+    .map((id) => TMDB_GENRE_MAP[id])
+    .filter(Boolean)
+    .slice(0, 3)
+}
+
 async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
   if (!TMDB_API_KEY) {
     return fallbackSuggestions.screen
@@ -41,8 +77,7 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
       release_date?: string
       first_air_date?: string
       overview?: string
-      original_name?: string
-      original_title?: string
+      genre_ids?: number[]
     }>
   }
 
@@ -59,14 +94,15 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
       source: 'tmdb',
       sourceLabel: 'TMDB weekly trending',
       sourceUrl: `https://www.themoviedb.org/${item.media_type}/${item.id}`,
-      subtitle: item.overview,
+      tags: mapGenreIds(item.genre_ids),
+      duration: 2,
     }))
   return (items.length > 0 ? items : fallbackSuggestions.screen) as MediaSuggestion[]
 }
 
 async function fetchBookTrending(): Promise<MediaSuggestion[]> {
   const response = await fetchWithTimeout(
-    'https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn',
+    'https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject',
   )
 
   if (!response.ok) {
@@ -81,6 +117,7 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
       first_publish_year?: number
       cover_i?: number
       isbn?: string[]
+      subject?: string[]
     }>
   }
 
@@ -91,6 +128,7 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
     } else if (item.isbn?.[0]) {
       coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
     }
+    const tags = item.subject?.slice(0, 3) ?? []
     return {
       id: item.key,
       category: 'book',
@@ -101,6 +139,8 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
       source: 'openlibrary',
       sourceLabel: 'Open Library trending',
       sourceUrl: `https://openlibrary.org${item.key}`,
+      tags,
+      duration: 300,
     }
   })
   return (items.length > 0 ? items : fallbackSuggestions.book) as MediaSuggestion[]
@@ -124,21 +164,27 @@ async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
         releaseDate: string
         artworkUrl100?: string
         url?: string
+        genres?: Array<{ name: string }>
       }>
     }
   }
 
-  const items = data.feed.results.map((item) => ({
-    id: item.id,
-    category: 'album',
-    title: item.name,
-    creator: item.artistName,
-    releaseDate: item.releaseDate,
-    coverUrl: item.artworkUrl100 ?? undefined,
-    source: 'apple-music',
-    sourceLabel: 'Apple Music most played',
-    sourceUrl: item.url,
-  }))
+  const items = data.feed.results.map((item) => {
+    const tags = item.genres?.map((g) => g.name).slice(0, 3) ?? []
+    return {
+      id: item.id,
+      category: 'album',
+      title: item.name,
+      creator: item.artistName,
+      releaseDate: item.releaseDate,
+      coverUrl: item.artworkUrl100 ?? undefined,
+      source: 'apple-music',
+      sourceLabel: 'Apple Music most played',
+      sourceUrl: item.url,
+      tags,
+      duration: 0.5,
+    }
+  })
   return (items.length > 0 ? items : fallbackSuggestions.album) as MediaSuggestion[]
 }
 
@@ -200,7 +246,7 @@ async function searchScreen(query: string): Promise<MediaSuggestion[]> {
       name?: string
       release_date?: string
       first_air_date?: string
-      overview?: string
+      genre_ids?: number[]
     }>
   }
 
@@ -217,13 +263,14 @@ async function searchScreen(query: string): Promise<MediaSuggestion[]> {
       source: 'tmdb' as const,
       sourceLabel: 'TMDB search',
       sourceUrl: `https://www.themoviedb.org/${item.media_type}/${item.id}`,
-      subtitle: item.overview,
+      tags: mapGenreIds(item.genre_ids),
+      duration: 2,
     }))
 }
 
 async function searchBook(query: string): Promise<MediaSuggestion[]> {
   const response = await fetchWithTimeout(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn`,
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject`,
   )
 
   if (!response.ok) return []
@@ -236,6 +283,7 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
       first_publish_year?: number
       cover_i?: number
       isbn?: string[]
+      subject?: string[]
     }>
   }
 
@@ -246,6 +294,7 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
     } else if (item.isbn?.[0]) {
       coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
     }
+    const tags = item.subject?.slice(0, 3) ?? []
     return {
       id: item.key,
       category: 'book' as const,
@@ -256,6 +305,8 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
       source: 'openlibrary' as const,
       sourceLabel: 'Open Library search',
       sourceUrl: `https://openlibrary.org${item.key}`,
+      tags,
+      duration: 300,
     }
   })
 }
@@ -275,18 +326,24 @@ async function searchAlbum(query: string): Promise<MediaSuggestion[]> {
       releaseDate: string
       artworkUrl100?: string
       collectionViewUrl?: string
+      primaryGenreName?: string
     }>
   }
 
-  return data.results.map((item) => ({
-    id: `itunes-${item.collectionId}`,
-    category: 'album' as const,
-    title: item.collectionName,
-    creator: item.artistName,
-    releaseDate: item.releaseDate,
-    coverUrl: item.artworkUrl100 ?? undefined,
-    source: 'apple-music' as const,
-    sourceLabel: 'iTunes search',
-    sourceUrl: item.collectionViewUrl,
-  }))
+  return data.results.map((item) => {
+    const tags = item.primaryGenreName ? [item.primaryGenreName] : []
+    return {
+      id: `itunes-${item.collectionId}`,
+      category: 'album' as const,
+      title: item.collectionName,
+      creator: item.artistName,
+      releaseDate: item.releaseDate,
+      coverUrl: item.artworkUrl100 ?? undefined,
+      source: 'apple-music' as const,
+      sourceLabel: 'iTunes search',
+      sourceUrl: item.collectionViewUrl,
+      tags,
+      duration: 0.5,
+    }
+  })
 }

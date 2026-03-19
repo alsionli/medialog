@@ -135,9 +135,6 @@ export function MediaFolderCard({
       <div className="folder-card__header">
         <div>
           <p className="folder-card__eyebrow">{meta.cardLabel}</p>
-          <p className="folder-card__count">
-            {count} {meta.actionLabel}
-          </p>
         </div>
       </div>
 
@@ -146,7 +143,7 @@ export function MediaFolderCard({
       </div>
 
       <div className="folder-card__footer">
-        <span className="folder-card__angle">{meta.angle}</span>
+        <span className="folder-card__angle">{count}</span>
         <button
           className="icon-circle-button folder-card__add-button"
           type="button"

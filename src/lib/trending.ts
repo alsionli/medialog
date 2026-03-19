@@ -4,6 +4,7 @@ import type { MediaCategory, MediaSuggestion } from '../types/media'
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY
 const FETCH_TIMEOUT_MS = 8000
+const isProd = import.meta.env.PROD
 
 async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
   const controller = new AbortController()
@@ -101,9 +102,8 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
 }
 
 async function fetchBookTrending(): Promise<MediaSuggestion[]> {
-  const response = await fetchWithTimeout(
-    'https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject',
-  )
+  const url = isProd ? '/api/openlibrary?action=trending' : 'https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject'
+  const response = await fetchWithTimeout(url)
 
   if (!response.ok) {
     throw new Error('Failed to fetch Open Library books.')
@@ -147,9 +147,8 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
 }
 
 async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
-  const response = await fetchWithTimeout(
-    'https://rss.marketingtools.apple.com/api/v2/us/music/most-played/12/albums.json',
-  )
+  const url = isProd ? '/api/apple-music' : 'https://rss.marketingtools.apple.com/api/v2/us/music/most-played/12/albums.json'
+  const response = await fetchWithTimeout(url)
 
   if (!response.ok) {
     throw new Error('Failed to fetch Apple Music charts.')
@@ -269,9 +268,8 @@ async function searchScreen(query: string): Promise<MediaSuggestion[]> {
 }
 
 async function searchBook(query: string): Promise<MediaSuggestion[]> {
-  const response = await fetchWithTimeout(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject`,
-  )
+  const url = isProd ? `/api/openlibrary?action=search&q=${encodeURIComponent(query)}` : `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject`
+  const response = await fetchWithTimeout(url)
 
   if (!response.ok) return []
 

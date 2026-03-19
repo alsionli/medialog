@@ -35,16 +35,31 @@ export default async function handler(req, res) {
   }
 
   try {
+    const parsed = new URL(targetUrl)
+    const host = parsed.hostname.toLowerCase()
+    const isMzstatic = host.endsWith('.mzstatic.com') || host === 'mzstatic.com'
+    const isOpenLibrary = host === 'covers.openlibrary.org'
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (compatible; MediaLog/1.0)',
+    }
+    if (isMzstatic) {
+      headers['Referer'] = 'https://music.apple.com/'
+    }
+    if (isOpenLibrary) {
+      headers['Accept'] = 'image/*'
+    }
+
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const timeout = setTimeout(() => controller.abort(), 10000)
     const response = await fetch(targetUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MediaLog/1.0)' },
+      headers,
       signal: controller.signal,
     })
     clearTimeout(timeout)
 
     if (!response.ok) {
-      return res.status(response.status).send('Image fetch failed')
+      return res.status(502).json({ error: `Image fetch failed: ${response.status}` })
     }
 
     const contentType = response.headers.get('content-type') || 'image/jpeg'
@@ -54,6 +69,6 @@ export default async function handler(req, res) {
     const buffer = await response.arrayBuffer()
     res.send(Buffer.from(buffer))
   } catch (err) {
-    res.status(502).json({ error: err.message })
+    res.status(502).json({ error: err.message || 'Image proxy error' })
   }
 }

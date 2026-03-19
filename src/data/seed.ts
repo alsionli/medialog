@@ -178,7 +178,7 @@ export const fallbackSuggestions: Record<MediaCategory, MediaSuggestion[]> = {
       title: 'Wall of Eyes',
       creator: 'The Smile',
       releaseDate: '2024-01-26',
-      coverUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/ef/1d/26/ef1d264d-f498-c6c2-0faa-cbc0aee78f20/191404139195.png/600x600bb.jpg',
+      coverUrl: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/df/28/09/df2809ad-cedd-d09d-6360-bcfbff610828/191404139479.png/600x600bb.jpg',
       source: 'manual',
       sourceLabel: 'Curated fallback',
       tags: ['Alternative'],

@@ -8,6 +8,7 @@ import {
 
 import { categoryMeta } from '../data/seed'
 import type { MediaCategory, MediaSuggestion } from '../types/media'
+import { CoverImage } from './CoverImage'
 
 interface EntryDraft {
   category: MediaCategory
@@ -162,11 +163,11 @@ export function AddEntryModal({
                       type="button"
                       onClick={() => onSelectSuggestion(item)}
                     >
-                      {item.coverUrl ? (
-                        <img src={item.coverUrl} alt={item.title} className="suggestion-card__cover" />
-                      ) : (
-                        <div className="suggestion-card__cover suggestion-card__cover--placeholder" />
-                      )}
+                      <CoverImage
+                        src={item.coverUrl}
+                        alt={item.title}
+                        className="suggestion-card__cover"
+                      />
 
                       <div className="suggestion-card__text">
                         <strong>{item.title}</strong>
@@ -181,11 +182,11 @@ export function AddEntryModal({
             <>
               <div className="entry-modal__section entry-modal__selected-preview">
                 <div className="selected-preview">
-                  {draft.coverUrl ? (
-                    <img src={draft.coverUrl} alt={draft.title} className="selected-preview__cover" />
-                  ) : (
-                    <div className="selected-preview__cover selected-preview__cover--placeholder" />
-                  )}
+                  <CoverImage
+                    src={draft.coverUrl}
+                    alt={draft.title}
+                    className="selected-preview__cover"
+                  />
                   <div className="selected-preview__text">
                     <strong>{draft.title}</strong>
                     <span>{draft.creator}</span>

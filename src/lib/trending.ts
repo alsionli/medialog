@@ -3,6 +3,18 @@ import type { MediaCategory, MediaSuggestion } from '../types/media'
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY
+const FETCH_TIMEOUT_MS = 8000
+
+async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal })
+    return res
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 function mapTmdbPoster(path?: string | null) {
   return path ? `${TMDB_IMAGE_BASE}${path}` : undefined
@@ -13,7 +25,7 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
     return fallbackSuggestions.screen
   }
 
-  const response = await fetch('/api/tmdb-trending')
+  const response = await fetchWithTimeout('/api/tmdb-trending')
 
   if (!response.ok) {
     throw new Error('Failed to fetch TMDB trending titles.')
@@ -34,7 +46,7 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
     }>
   }
 
-  return data.results
+  const items = data.results
     .filter((item) => item.media_type === 'movie' || item.media_type === 'tv')
     .slice(0, 8)
     .map((item) => ({
@@ -49,11 +61,12 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
       sourceUrl: `https://www.themoviedb.org/${item.media_type}/${item.id}`,
       subtitle: item.overview,
     }))
+  return (items.length > 0 ? items : fallbackSuggestions.screen) as MediaSuggestion[]
 }
 
 async function fetchBookTrending(): Promise<MediaSuggestion[]> {
-  const response = await fetch(
-    'https://openlibrary.org/search.json?q=fiction&sort=trending&limit=8&fields=key,title,author_name,first_publish_year,cover_i',
+  const response = await fetchWithTimeout(
+    'https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn',
   )
 
   if (!response.ok) {
@@ -67,26 +80,34 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
       author_name?: string[]
       first_publish_year?: number
       cover_i?: number
+      isbn?: string[]
     }>
   }
 
-  return data.docs.map((item) => ({
-    id: item.key,
-    category: 'book',
-    title: item.title,
-    creator: item.author_name?.[0] ?? 'Unknown author',
-    releaseDate: item.first_publish_year ? String(item.first_publish_year) : undefined,
-    coverUrl: item.cover_i
-      ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`
-      : undefined,
-    source: 'openlibrary',
-    sourceLabel: 'Open Library trending',
-    sourceUrl: `https://openlibrary.org${item.key}`,
-  }))
+  const items = data.docs.map((item) => {
+    let coverUrl: string | undefined
+    if (item.cover_i) {
+      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`
+    } else if (item.isbn?.[0]) {
+      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-L.jpg`
+    }
+    return {
+      id: item.key,
+      category: 'book',
+      title: item.title,
+      creator: item.author_name?.[0] ?? 'Unknown author',
+      releaseDate: item.first_publish_year ? String(item.first_publish_year) : undefined,
+      coverUrl,
+      source: 'openlibrary',
+      sourceLabel: 'Open Library trending',
+      sourceUrl: `https://openlibrary.org${item.key}`,
+    }
+  })
+  return (items.length > 0 ? items : fallbackSuggestions.book) as MediaSuggestion[]
 }
 
 async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     'https://rss.marketingtools.apple.com/api/v2/us/music/most-played/12/albums.json',
   )
 
@@ -107,17 +128,22 @@ async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
     }
   }
 
-  return data.feed.results.map((item) => ({
-    id: item.id,
-    category: 'album',
-    title: item.name,
-    creator: item.artistName,
-    releaseDate: item.releaseDate,
-    coverUrl: item.artworkUrl100?.replace('100x100bb.jpg', '600x600bb.jpg'),
-    source: 'apple-music',
-    sourceLabel: 'Apple Music most played',
-    sourceUrl: item.url,
-  }))
+  const items = data.feed.results.map((item) => {
+    const raw = item.artworkUrl100
+    const coverUrl = raw ? raw.replace(/100x100bb\.(jpg|png)$/i, '300x300bb.$1') : undefined
+    return {
+      id: item.id,
+      category: 'album',
+      title: item.name,
+      creator: item.artistName,
+      releaseDate: item.releaseDate,
+      coverUrl: coverUrl ?? raw ?? undefined,
+      source: 'apple-music',
+      sourceLabel: 'Apple Music most played',
+      sourceUrl: item.url,
+    }
+  })
+  return (items.length > 0 ? items : fallbackSuggestions.album) as MediaSuggestion[]
 }
 
 export async function fetchTrendingByCategory(
@@ -163,7 +189,7 @@ export async function searchByCategory(
 async function searchScreen(query: string): Promise<MediaSuggestion[]> {
   if (!TMDB_API_KEY) return []
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `/api/tmdb-search?q=${encodeURIComponent(query)}`,
   )
 
@@ -200,8 +226,8 @@ async function searchScreen(query: string): Promise<MediaSuggestion[]> {
 }
 
 async function searchBook(query: string): Promise<MediaSuggestion[]> {
-  const response = await fetch(
-    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i`,
+  const response = await fetchWithTimeout(
+    `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn`,
   )
 
   if (!response.ok) return []
@@ -213,26 +239,33 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
       author_name?: string[]
       first_publish_year?: number
       cover_i?: number
+      isbn?: string[]
     }>
   }
 
-  return data.docs.map((item) => ({
-    id: item.key,
-    category: 'book' as const,
-    title: item.title,
-    creator: item.author_name?.[0] ?? 'Unknown author',
-    releaseDate: item.first_publish_year ? String(item.first_publish_year) : undefined,
-    coverUrl: item.cover_i
-      ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`
-      : undefined,
-    source: 'openlibrary' as const,
-    sourceLabel: 'Open Library search',
-    sourceUrl: `https://openlibrary.org${item.key}`,
-  }))
+  return data.docs.map((item) => {
+    let coverUrl: string | undefined
+    if (item.cover_i) {
+      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`
+    } else if (item.isbn?.[0]) {
+      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-L.jpg`
+    }
+    return {
+      id: item.key,
+      category: 'book' as const,
+      title: item.title,
+      creator: item.author_name?.[0] ?? 'Unknown author',
+      releaseDate: item.first_publish_year ? String(item.first_publish_year) : undefined,
+      coverUrl,
+      source: 'openlibrary' as const,
+      sourceLabel: 'Open Library search',
+      sourceUrl: `https://openlibrary.org${item.key}`,
+    }
+  })
 }
 
 async function searchAlbum(query: string): Promise<MediaSuggestion[]> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=8`,
   )
 
@@ -249,15 +282,19 @@ async function searchAlbum(query: string): Promise<MediaSuggestion[]> {
     }>
   }
 
-  return data.results.map((item) => ({
-    id: `itunes-${item.collectionId}`,
-    category: 'album' as const,
-    title: item.collectionName,
-    creator: item.artistName,
-    releaseDate: item.releaseDate,
-    coverUrl: item.artworkUrl100?.replace('100x100bb.jpg', '600x600bb.jpg'),
-    source: 'apple-music' as const,
-    sourceLabel: 'iTunes search',
-    sourceUrl: item.collectionViewUrl,
-  }))
+  return data.results.map((item) => {
+    const raw = item.artworkUrl100
+    const coverUrl = raw ? raw.replace(/100x100bb\.(jpg|png)$/i, '300x300bb.$1') : undefined
+    return {
+      id: `itunes-${item.collectionId}`,
+      category: 'album' as const,
+      title: item.collectionName,
+      creator: item.artistName,
+      releaseDate: item.releaseDate,
+      coverUrl: coverUrl ?? raw ?? undefined,
+      source: 'apple-music' as const,
+      sourceLabel: 'iTunes search',
+      sourceUrl: item.collectionViewUrl,
+    }
+  })
 }

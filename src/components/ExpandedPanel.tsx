@@ -4,6 +4,7 @@ import {
 } from '@mingcute/react'
 
 import { categoryMeta } from '../data/seed'
+import { CoverImage } from './CoverImage'
 import type { LogEntry, MediaCategory, MediaSuggestion } from '../types/media'
 
 interface ExpandedPanelProps {
@@ -51,11 +52,11 @@ export function ExpandedPanel({
           {previewItems.map((entry) => (
             <article key={entry.id} className="entry-card">
               <div className="entry-card__cover-wrap">
-                {entry.coverUrl ? (
-                  <img className="entry-card__cover" src={entry.coverUrl} alt={entry.title} />
-                ) : (
-                  <div className="entry-card__cover entry-card__cover--placeholder" />
-                )}
+                <CoverImage
+                  src={entry.coverUrl}
+                  alt={entry.title}
+                  className="entry-card__cover"
+                />
               </div>
 
               <div className="entry-card__text">

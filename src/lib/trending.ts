@@ -87,9 +87,9 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
   const items = data.docs.map((item) => {
     let coverUrl: string | undefined
     if (item.cover_i) {
-      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`
+      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
     } else if (item.isbn?.[0]) {
-      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-L.jpg`
+      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
     }
     return {
       id: item.key,
@@ -128,21 +128,17 @@ async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
     }
   }
 
-  const items = data.feed.results.map((item) => {
-    const raw = item.artworkUrl100
-    const coverUrl = raw ? raw.replace(/100x100bb\.(jpg|png)$/i, '300x300bb.$1') : undefined
-    return {
-      id: item.id,
-      category: 'album',
-      title: item.name,
-      creator: item.artistName,
-      releaseDate: item.releaseDate,
-      coverUrl: coverUrl ?? raw ?? undefined,
-      source: 'apple-music',
-      sourceLabel: 'Apple Music most played',
-      sourceUrl: item.url,
-    }
-  })
+  const items = data.feed.results.map((item) => ({
+    id: item.id,
+    category: 'album',
+    title: item.name,
+    creator: item.artistName,
+    releaseDate: item.releaseDate,
+    coverUrl: item.artworkUrl100 ?? undefined,
+    source: 'apple-music',
+    sourceLabel: 'Apple Music most played',
+    sourceUrl: item.url,
+  }))
   return (items.length > 0 ? items : fallbackSuggestions.album) as MediaSuggestion[]
 }
 
@@ -246,9 +242,9 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
   return data.docs.map((item) => {
     let coverUrl: string | undefined
     if (item.cover_i) {
-      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`
+      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
     } else if (item.isbn?.[0]) {
-      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-L.jpg`
+      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
     }
     return {
       id: item.key,
@@ -282,19 +278,15 @@ async function searchAlbum(query: string): Promise<MediaSuggestion[]> {
     }>
   }
 
-  return data.results.map((item) => {
-    const raw = item.artworkUrl100
-    const coverUrl = raw ? raw.replace(/100x100bb\.(jpg|png)$/i, '300x300bb.$1') : undefined
-    return {
-      id: `itunes-${item.collectionId}`,
-      category: 'album' as const,
-      title: item.collectionName,
-      creator: item.artistName,
-      releaseDate: item.releaseDate,
-      coverUrl: coverUrl ?? raw ?? undefined,
-      source: 'apple-music' as const,
-      sourceLabel: 'iTunes search',
-      sourceUrl: item.collectionViewUrl,
-    }
-  })
+  return data.results.map((item) => ({
+    id: `itunes-${item.collectionId}`,
+    category: 'album' as const,
+    title: item.collectionName,
+    creator: item.artistName,
+    releaseDate: item.releaseDate,
+    coverUrl: item.artworkUrl100 ?? undefined,
+    source: 'apple-music' as const,
+    sourceLabel: 'iTunes search',
+    sourceUrl: item.collectionViewUrl,
+  }))
 }

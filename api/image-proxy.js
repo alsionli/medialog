@@ -1,17 +1,13 @@
-const ALLOWED_ORIGINS = [
-  'https://covers.openlibrary.org',
-  'https://is1-ssl.mzstatic.com',
-  'https://is2-ssl.mzstatic.com',
-  'https://is3-ssl.mzstatic.com',
-  'https://is4-ssl.mzstatic.com',
-  'https://is5-ssl.mzstatic.com',
-  'https://image.tmdb.org',
-]
-
 function isAllowedUrl(url) {
   try {
     const parsed = new URL(url)
-    return ALLOWED_ORIGINS.some((origin) => parsed.origin === origin)
+    const host = parsed.hostname.toLowerCase()
+    return (
+      host === 'covers.openlibrary.org' ||
+      host === 'image.tmdb.org' ||
+      host.endsWith('.mzstatic.com') ||
+      host === 'mzstatic.com'
+    )
   } catch {
     return false
   }
@@ -39,9 +35,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
     const response = await fetch(targetUrl, {
-      headers: { 'User-Agent': 'MediaLog/1.0' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MediaLog/1.0)' },
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     if (!response.ok) {
       return res.status(response.status).send('Image fetch failed')
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
     const contentType = response.headers.get('content-type') || 'image/jpeg'
     res.setHeader('Content-Type', contentType)
-    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400')
+    res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=604800')
 
     const buffer = await response.arrayBuffer()
     res.send(Buffer.from(buffer))

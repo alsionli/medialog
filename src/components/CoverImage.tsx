@@ -23,6 +23,8 @@ export function CoverImage({ src, alt, className, placeholderClassName }: CoverI
       alt={alt}
       className={className}
       referrerPolicy="no-referrer"
+      loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
     />
   )

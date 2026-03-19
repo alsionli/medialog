@@ -39,7 +39,7 @@ export function DetailListRow({
   return (
     <article className="detail-row">
       <div className="detail-row__art">
-        {coverUrl ? <img className="detail-row__art-image" src={getCoverUrl(coverUrl)} alt={title} referrerPolicy="no-referrer" /> : <DotVisual category={category} />}
+        {coverUrl ? <img className="detail-row__art-image" src={getCoverUrl(coverUrl)} alt={title} referrerPolicy="no-referrer" loading="lazy" decoding="async" /> : <DotVisual category={category} />}
       </div>
 
       <div className="detail-row__copy">

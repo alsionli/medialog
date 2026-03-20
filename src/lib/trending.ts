@@ -136,6 +136,27 @@ function ensureTrendingWithCovers(
   return out
 }
 
+/**
+ * Add-entry modal uses `suggestions.slice(0, 3)`. Open Library trending is volatile and
+ * cover URLs often fail in production; put curated `fallbackSuggestions.book` first so the
+ * three visible cards are stable classics with known-good cover IDs.
+ */
+function mergeBookTrendingWithCuratedFirst(
+  fromApi: MediaSuggestion[],
+  curated: MediaSuggestion[],
+  max = 8,
+): MediaSuggestion[] {
+  const seen = new Set<string>()
+  const out: MediaSuggestion[] = []
+  for (const item of [...curated, ...fromApi]) {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(item)
+    if (out.length >= max) break
+  }
+  return out
+}
+
 async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
   if (!TMDB_API_KEY) {
     return fallbackSuggestions.screen
@@ -268,7 +289,8 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
   }).catch(() => {})
   // #endregion
 
-  return (ensured.length > 0 ? ensured : fallbackSuggestions.book) as MediaSuggestion[]
+  const merged = mergeBookTrendingWithCuratedFirst(ensured, fallbackSuggestions.book, 8)
+  return (merged.length > 0 ? merged : fallbackSuggestions.book) as MediaSuggestion[]
 }
 
 async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {

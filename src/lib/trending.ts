@@ -106,6 +106,35 @@ function mapGenreIds(ids?: number[]): string[] {
     .slice(0, 3)
 }
 
+function hasCoverArt(item: MediaSuggestion): boolean {
+  return Boolean(item.coverUrl?.trim())
+}
+
+/** Prefer API hits that have posters/art; pad with fallbacks so Trending picks are never coverless. */
+function ensureTrendingWithCovers(
+  items: MediaSuggestion[],
+  fallback: MediaSuggestion[],
+  max = 8,
+): MediaSuggestion[] {
+  const out: MediaSuggestion[] = []
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (!hasCoverArt(item)) continue
+    if (seen.has(item.id)) continue
+    out.push(item)
+    seen.add(item.id)
+    if (out.length >= max) return out
+  }
+  for (const item of fallback) {
+    if (!hasCoverArt(item)) continue
+    if (seen.has(item.id)) continue
+    out.push(item)
+    seen.add(item.id)
+    if (out.length >= max) break
+  }
+  return out
+}
+
 async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
   if (!TMDB_API_KEY) {
     return fallbackSuggestions.screen
@@ -131,9 +160,9 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
     }>
   }
 
-  const items = data.results
+  const mapped = data.results
     .filter((item) => item.media_type === 'movie' || item.media_type === 'tv')
-    .slice(0, 8)
+    .slice(0, 40)
     .map((item) => ({
       id: `tmdb-${item.id}`,
       category: 'screen',
@@ -147,7 +176,8 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
       tags: mapGenreIds(item.genre_ids),
       duration: 2,
     }))
-  return (items.length > 0 ? items : fallbackSuggestions.screen) as MediaSuggestion[]
+  const ensured = ensureTrendingWithCovers(mapped as MediaSuggestion[], fallbackSuggestions.screen, 8)
+  return (ensured.length > 0 ? ensured : fallbackSuggestions.screen) as MediaSuggestion[]
 }
 
 async function fetchBookTrending(): Promise<MediaSuggestion[]> {
@@ -171,7 +201,7 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
 
   const docs = Array.isArray(data.docs) ? data.docs : []
 
-  const items = docs.map((item, index) => {
+  const mapped = docs.map((item, index) => {
     const coverUrl = openLibraryCoverUrl(item.cover_i, item.isbn)
     const tags = item.subject?.slice(0, 3) ?? []
     const key = item.key ?? `/works/unknown-${index}`
@@ -189,7 +219,8 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
       duration: 300,
     }
   })
-  return (items.length > 0 ? items : fallbackSuggestions.book) as MediaSuggestion[]
+  const ensured = ensureTrendingWithCovers(mapped as MediaSuggestion[], fallbackSuggestions.book, 8)
+  return (ensured.length > 0 ? ensured : fallbackSuggestions.book) as MediaSuggestion[]
 }
 
 async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
@@ -214,7 +245,7 @@ async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
     }
   }
 
-  const items = data.feed.results.map((item) => {
+  const mapped = data.feed.results.map((item) => {
     const tags = item.genres?.map((g) => g.name).slice(0, 3) ?? []
     return {
       id: item.id,
@@ -230,7 +261,8 @@ async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
       duration: 0.5,
     }
   })
-  return (items.length > 0 ? items : fallbackSuggestions.album) as MediaSuggestion[]
+  const ensured = ensureTrendingWithCovers(mapped as MediaSuggestion[], fallbackSuggestions.album, 8)
+  return (ensured.length > 0 ? ensured : fallbackSuggestions.album) as MediaSuggestion[]
 }
 
 export async function fetchTrendingByCategory(

@@ -11,7 +11,8 @@ export default async function handler(req, res) {
     }
     url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=8&fields=${FIELDS}`
   } else {
-    url = `https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=${FIELDS}`
+    // Fetch extra rows so we can drop entries without covers and still fill trending picks.
+    url = `https://openlibrary.org/search.json?q=fiction&sort=new&limit=40&fields=${FIELDS}`
   }
 
   try {

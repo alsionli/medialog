@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
           if (action === 'search') {
             proxyReq.path = `/search.json?q=${encodeURIComponent(q)}&limit=8&fields=${OL_FIELDS}`
           } else {
-            proxyReq.path = `/search.json?q=fiction&sort=new&limit=8&fields=${OL_FIELDS}`
+            proxyReq.path = `/search.json?q=fiction&sort=new&limit=40&fields=${OL_FIELDS}`
           }
         })
       },

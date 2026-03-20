@@ -1,6 +1,7 @@
 import { DeleteLine, EditLine, StarFill, StarLine } from '@mingcute/react'
 
 import { getCoverUrl } from '../lib/cover'
+import { formatDurationMetric } from '../lib/stats'
 import type { MediaCategory } from '../types/media'
 
 interface DetailListRowProps {
@@ -11,6 +12,10 @@ interface DetailListRowProps {
   loggedAt?: string
   rating?: number
   coverUrl?: string
+  /** Runtime (h) / play time (h) / pages — from entry or suggestion */
+  duration?: number
+  /** e.g. Runtime, Play time, Pages */
+  metricLabel?: string
   entryId?: string
   onDelete?: (id: string) => void
   onEdit?: (id: string) => void
@@ -38,10 +43,14 @@ export function DetailListRow({
   loggedAt,
   rating = 0,
   coverUrl,
+  duration,
+  metricLabel,
   entryId,
   onDelete,
   onEdit,
 }: DetailListRowProps) {
+  const metricValue = formatDurationMetric(category, duration)
+
   return (
     <article className="detail-row">
       <div className="detail-row__art">
@@ -51,6 +60,12 @@ export function DetailListRow({
       <div className="detail-row__copy">
         <div className="detail-row__title">{title}</div>
         <div className="detail-row__creator">{creator}</div>
+        {metricValue && metricLabel ? (
+          <div className="detail-row__metric" aria-label={`${metricLabel} ${metricValue}`}>
+            <span className="detail-row__metric-label">{metricLabel}</span>
+            <span className="detail-row__metric-value">{metricValue}</span>
+          </div>
+        ) : null}
         {notes ? <p className="detail-row__notes">{notes}</p> : null}
         <div className="detail-row__time">Added {formatAddedTime(loggedAt)}</div>
       </div>

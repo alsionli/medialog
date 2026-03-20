@@ -84,7 +84,7 @@ export const categoryDetailMeta: Record<
     genreTitle: 'Top Genres',
     tickerStatus: 'Now Reading',
     tickerText: 'North Woods — Daniel Mason',
-    rowMetricLabel: 'Session',
+    rowMetricLabel: 'Pages',
   },
 }
 

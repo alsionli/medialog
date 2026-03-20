@@ -3,7 +3,12 @@ import { Link } from 'react-router-dom'
 
 import { DetailListRow } from '../components/DetailListRow'
 import { categoryDetailMeta, categoryMeta } from '../data/seed'
-import { computeTopGenre, computeTopMetric } from '../lib/stats'
+import {
+  computeTopGenres,
+  computeTopMetric,
+  genrePieBackground,
+  genreSliceColor,
+} from '../lib/stats'
 import type { LogEntry, MediaCategory, MediaSuggestion } from '../types/media'
 
 interface CategoryDetailPageProps {
@@ -30,7 +35,7 @@ export function CategoryDetailPage({
   const meta = categoryDetailMeta[category]
   const rowItems = entries.length > 0 ? entries : trending.slice(0, 3)
   const topMetric = computeTopMetric(entries, category)
-  const topGenre = computeTopGenre(entries)
+  const topGenres = computeTopGenres(entries)
 
   return (
     <main className="detail-shell">
@@ -68,6 +73,8 @@ export function CategoryDetailPage({
                   loggedAt={isLogEntry(item) ? item.loggedAt : undefined}
                   rating={isLogEntry(item) ? item.rating : undefined}
                   coverUrl={'coverUrl' in item ? item.coverUrl : undefined}
+                  duration={item.duration}
+                  metricLabel={meta.rowMetricLabel}
                   entryId={isLogEntry(item) ? item.id : undefined}
                   onEdit={isLogEntry(item) ? () => onEditEntry(item) : undefined}
                   onDelete={isLogEntry(item) ? onDeleteEntry : undefined}
@@ -86,14 +93,35 @@ export function CategoryDetailPage({
               <div className="genre-card__header">
                 <h3>{meta.genreTitle}</h3>
               </div>
-              <div className="pie-container">
+              <div
+                className="pie-container"
+                style={{ background: genrePieBackground(topGenres) }}
+                aria-hidden={topGenres.length === 0}
+              >
                 <div className="pie-dot-fill" />
                 <div className="pie-outline" />
               </div>
-              <div className="genre-legend">
-                <div className="genre-legend__dot" />
-                <span>{topGenre}</span>
-              </div>
+              {topGenres.length > 0 ? (
+                <ul className="genre-legends">
+                  {topGenres.map((g, i) => (
+                    <li key={`${g.name}-${i}`} className="genre-legend">
+                      <div
+                        className="genre-legend__dot"
+                        style={{ background: genreSliceColor(i) }}
+                      />
+                      <span>
+                        {g.name} <span className="genre-legend__pct">({g.percent}%)</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="genre-empty">
+                  {entries.length > 0
+                    ? 'No tags on your entries yet — tags appear from picks or edits.'
+                    : 'Add logs with genre tags to see this chart.'}
+                </p>
+              )}
             </div>
           </div>
         </section>

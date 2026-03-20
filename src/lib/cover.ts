@@ -30,5 +30,39 @@ export function getCoverUrl(url: string | undefined | null): string | undefined 
   }
 
   // Same-origin proxy: works when the user’s network blocks hotlinking to OL / TMDB / Apple CDN.
-  return `/api/image-proxy?url=${encodeURIComponent(url)}`
+  const proxied = `/api/image-proxy?url=${encodeURIComponent(url)}`
+  // #region agent log
+  const g = globalThis as { __dbgOlCoverLog?: number }
+  if (url.includes('covers.openlibrary.org')) {
+    g.__dbgOlCoverLog = (g.__dbgOlCoverLog ?? 0) + 1
+    if (g.__dbgOlCoverLog > 4) {
+      return proxied
+    }
+    fetch('http://127.0.0.1:7637/ingest/18c82ce6-7609-44aa-abeb-d6f8949b468e', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'cef54f' },
+      body: JSON.stringify({
+        sessionId: 'cef54f',
+        location: 'cover.ts:getCoverUrl',
+        message: 'OL cover URL transform',
+        data: {
+          prod: import.meta.env.PROD,
+          useProxy: true,
+          originalHost: (() => {
+            try {
+              return new URL(url).hostname
+            } catch {
+              return 'invalid'
+            }
+          })(),
+          proxiedLen: proxied.length,
+        },
+        timestamp: Date.now(),
+        hypothesisId: 'C',
+        runId: 'pre-fix',
+      }),
+    }).catch(() => {})
+  }
+  // #endregion
+  return proxied
 }

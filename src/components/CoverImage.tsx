@@ -41,7 +41,27 @@ export function CoverImage({
       referrerPolicy={referrerPolicy}
       loading={loading}
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7637/ingest/18c82ce6-7609-44aa-abeb-d6f8949b468e', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'cef54f' },
+          body: JSON.stringify({
+            sessionId: 'cef54f',
+            location: 'CoverImage.tsx:onError',
+            message: 'img load failed',
+            data: {
+              isProxy: displayUrl.startsWith('/api/image-proxy'),
+              displayPrefix: displayUrl.slice(0, 140),
+            },
+            timestamp: Date.now(),
+            hypothesisId: 'D',
+            runId: 'pre-fix',
+          }),
+        }).catch(() => {})
+        // #endregion
+        setFailed(true)
+      }}
     />
   )
 }

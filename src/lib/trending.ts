@@ -3,7 +3,8 @@ import type { MediaCategory, MediaSuggestion } from '../types/media'
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY
-const FETCH_TIMEOUT_MS = 8000
+/** OL / TMDB can exceed 8s on slow networks; aborting caused empty UI before fallback applied. */
+const FETCH_TIMEOUT_MS = 25000
 const isProd = import.meta.env.PROD
 
 /** TMDB screen search/trending requires a Vite env key in dev and deployment env in prod. */
@@ -201,6 +202,29 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
 
   const docs = Array.isArray(data.docs) ? data.docs : []
 
+  // #region agent log
+  fetch('http://127.0.0.1:7637/ingest/18c82ce6-7609-44aa-abeb-d6f8949b468e', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'cef54f' },
+    body: JSON.stringify({
+      sessionId: 'cef54f',
+      location: 'trending.ts:fetchBookTrending',
+      message: 'OL trending docs received',
+      data: {
+        docsLen: docs.length,
+        sample: docs.slice(0, 3).map((d) => ({
+          key: d.key,
+          cover_i: d.cover_i,
+          isbn0: Array.isArray(d.isbn) ? d.isbn[0] : null,
+        })),
+      },
+      timestamp: Date.now(),
+      hypothesisId: 'A',
+      runId: 'pre-fix',
+    }),
+  }).catch(() => {})
+  // #endregion
+
   const mapped = docs.map((item, index) => {
     const coverUrl = openLibraryCoverUrl(item.cover_i, item.isbn)
     const tags = item.subject?.slice(0, 3) ?? []
@@ -220,6 +244,30 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
     }
   })
   const ensured = ensureTrendingWithCovers(mapped as MediaSuggestion[], fallbackSuggestions.book, 8)
+
+  // #region agent log
+  const mappedWithCover = mapped.filter((m) => Boolean(m.coverUrl?.trim())).length
+  fetch('http://127.0.0.1:7637/ingest/18c82ce6-7609-44aa-abeb-d6f8949b468e', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'cef54f' },
+    body: JSON.stringify({
+      sessionId: 'cef54f',
+      location: 'trending.ts:fetchBookTrending',
+      message: 'book trending after ensure',
+      data: {
+        mappedWithCover,
+        mappedLen: mapped.length,
+        ensuredLen: ensured.length,
+        firstCoverPrefix: ensured[0]?.coverUrl?.slice(0, 96) ?? null,
+        usedFallbackOnly: ensured.length === 0,
+      },
+      timestamp: Date.now(),
+      hypothesisId: 'B',
+      runId: 'pre-fix',
+    }),
+  }).catch(() => {})
+  // #endregion
+
   return (ensured.length > 0 ? ensured : fallbackSuggestions.book) as MediaSuggestion[]
 }
 
@@ -278,7 +326,22 @@ export async function fetchTrendingByCategory(
     }
 
     return await fetchAlbumTrending()
-  } catch {
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7637/ingest/18c82ce6-7609-44aa-abeb-d6f8949b468e', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'cef54f' },
+      body: JSON.stringify({
+        sessionId: 'cef54f',
+        location: 'trending.ts:fetchTrendingByCategory',
+        message: 'trending fetch threw',
+        data: { category, err: String(err) },
+        timestamp: Date.now(),
+        hypothesisId: 'E',
+        runId: 'pre-fix',
+      }),
+    }).catch(() => {})
+    // #endregion
     return fallbackSuggestions[category]
   }
 }

@@ -129,8 +129,10 @@ function App() {
   }, [entries])
 
   useEffect(() => {
+    let cancelled = false
     ;(['screen', 'book', 'album'] as MediaCategory[]).forEach(async (category) => {
       const items = await fetchTrendingByCategory(category)
+      if (cancelled) return
 
       setTrending((current) => ({
         ...current,
@@ -141,6 +143,9 @@ function App() {
         [category]: false,
       }))
     })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const totalEntries = entries.length

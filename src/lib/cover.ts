@@ -19,8 +19,12 @@ export function getCoverUrl(url: string | undefined | null): string | undefined 
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase()
+    // Open Library covers allow normal <img> hotlinking; server-side proxy often fails (502)
+    // from Vercel → browser decodes JSON error as image. Load directly.
+    if (host === 'covers.openlibrary.org') {
+      return url
+    }
     const allowed =
-      host === 'covers.openlibrary.org' ||
       host === 'image.tmdb.org' ||
       host.endsWith('.mzstatic.com') ||
       host === 'mzstatic.com'

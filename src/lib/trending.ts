@@ -32,6 +32,29 @@ function upscaleItunesArtwork(url: string | undefined): string | undefined {
   return url
 }
 
+/** Normalize OL `isbn` field (string, number, or array) and strip hyphens. */
+function normalizeOpenLibraryIsbns(raw: unknown): string[] {
+  if (raw == null) return []
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x).replace(/-/g, '')).filter(Boolean)
+  }
+  return [String(raw).replace(/-/g, '')].filter(Boolean)
+}
+
+/** Prefer 13-digit 978… ISBN when present — cover service usually has art for that edition. */
+function openLibraryCoverUrl(cover_i: number | undefined, isbnRaw: unknown): string | undefined {
+  if (cover_i) {
+    return `https://covers.openlibrary.org/b/id/${cover_i}-L.jpg`
+  }
+  const isbns = normalizeOpenLibraryIsbns(isbnRaw)
+  const preferred =
+    isbns.find((i) => i.startsWith('978') && i.length >= 13) ??
+    isbns.find((i) => i.startsWith('978')) ??
+    isbns[0]
+  if (!preferred) return undefined
+  return `https://covers.openlibrary.org/b/isbn/${preferred}-L.jpg`
+}
+
 async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
@@ -149,12 +172,7 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
   const docs = Array.isArray(data.docs) ? data.docs : []
 
   const items = docs.map((item, index) => {
-    let coverUrl: string | undefined
-    if (item.cover_i) {
-      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
-    } else if (item.isbn?.[0]) {
-      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
-    }
+    const coverUrl = openLibraryCoverUrl(item.cover_i, item.isbn)
     const tags = item.subject?.slice(0, 3) ?? []
     const key = item.key ?? `/works/unknown-${index}`
     return {
@@ -315,12 +333,7 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
   const docs = Array.isArray(data.docs) ? data.docs : []
 
   return docs.map((item, index) => {
-    let coverUrl: string | undefined
-    if (item.cover_i) {
-      coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
-    } else if (item.isbn?.[0]) {
-      coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
-    }
+    const coverUrl = openLibraryCoverUrl(item.cover_i, item.isbn)
     const tags = item.subject?.slice(0, 3) ?? []
     const key = item.key ?? `/works/unknown-${index}`
     return {

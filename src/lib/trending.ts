@@ -41,10 +41,10 @@ function normalizeOpenLibraryIsbns(raw: unknown): string[] {
   return [String(raw).replace(/-/g, '')].filter(Boolean)
 }
 
-/** Prefer 13-digit 978… ISBN when present — cover service usually has art for that edition. */
+/** Prefer 13-digit 978… ISBN when present. Use `-M` (not `-L`) — `-L` often 404s for ISBN endpoint. */
 function openLibraryCoverUrl(cover_i: number | undefined, isbnRaw: unknown): string | undefined {
   if (cover_i) {
-    return `https://covers.openlibrary.org/b/id/${cover_i}-L.jpg`
+    return `https://covers.openlibrary.org/b/id/${cover_i}-M.jpg`
   }
   const isbns = normalizeOpenLibraryIsbns(isbnRaw)
   const preferred =
@@ -52,7 +52,7 @@ function openLibraryCoverUrl(cover_i: number | undefined, isbnRaw: unknown): str
     isbns.find((i) => i.startsWith('978')) ??
     isbns[0]
   if (!preferred) return undefined
-  return `https://covers.openlibrary.org/b/isbn/${preferred}-L.jpg`
+  return `https://covers.openlibrary.org/b/isbn/${preferred}-M.jpg`
 }
 
 async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {

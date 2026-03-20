@@ -48,6 +48,7 @@ export default async function handler(req, res) {
     }
     if (isOpenLibrary) {
       headers['Accept'] = 'image/*'
+      headers['Referer'] = 'https://openlibrary.org/'
     }
 
     const controller = new AbortController()

@@ -173,9 +173,11 @@ export function AddEntryModal({
                         onClick={() => onSelectSuggestion(item)}
                       >
                         <CoverImage
+                          key={`${item.id}-${item.coverUrl ?? ''}`}
                           src={item.coverUrl}
                           alt={item.title}
                           className="suggestion-card__cover"
+                          loading="eager"
                         />
 
                         <div className="suggestion-card__text">
@@ -197,9 +199,11 @@ export function AddEntryModal({
               <div className="entry-modal__section entry-modal__selected-preview">
                 <div className="selected-preview">
                   <CoverImage
+                    key={`preview-${draft.coverUrl ?? ''}`}
                     src={draft.coverUrl}
                     alt={draft.title}
                     className="selected-preview__cover"
+                    loading="eager"
                   />
                   <div className="selected-preview__text">
                     <strong>{draft.title}</strong>

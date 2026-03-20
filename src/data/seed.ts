@@ -4,7 +4,7 @@ import type { LogEntry, MediaCategory, MediaSuggestion } from '../types/media'
  * Bump when built-in preset rows in `initialEntries` change (titles, covers, new rows).
  * `storage.ts` syncs preset ids from seed when the saved version is older.
  */
-export const INITIAL_ENTRIES_VERSION = 2
+export const INITIAL_ENTRIES_VERSION = 3
 
 export const categoryMeta: Record<
   MediaCategory,
@@ -276,7 +276,7 @@ export const initialEntries: LogEntry[] = [
     notes: '',
     loggedAt: '2026-03-06',
     releaseDate: '2021-10-22',
-    coverUrl: 'https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgN7C2.jpg',
+    coverUrl: 'https://image.tmdb.org/t/p/w500/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg',
     source: 'manual',
     sourceLabel: 'Curated fallback',
     tags: ['Sci-Fi', 'Adventure'],

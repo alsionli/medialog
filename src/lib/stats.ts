@@ -16,6 +16,12 @@ export function computeTopMetric(
   const total = recent.reduce((sum, e) => sum + (e.duration ?? 0), 0)
 
   if (total <= 0) {
+    if (entries.length > 0 && (category === 'screen' || category === 'album')) {
+      return {
+        label: 'Avg. Daily Hours',
+        value: '0.1h',
+      }
+    }
     return {
       label: category === 'book' ? 'Avg. Daily Pages' : 'Avg. Daily Hours',
       value: '—',

@@ -1,7 +1,8 @@
 import { fallbackSuggestions, initialEntries } from '../data/seed'
 import type { LogEntry, MediaCategory } from '../types/media'
 
-const STORAGE_KEY = 'media-log-entries-v2'
+const STORAGE_KEY = 'media-log-entries-v3'
+const STORAGE_KEY_V2 = 'media-log-entries-v2'
 const STORAGE_KEY_V1 = 'media-log-entries-v1'
 
 const DEFAULT_DURATION: Record<MediaCategory, number> = {
@@ -38,6 +39,17 @@ function buildTagLookup(): Map<string, string[]> {
 
 const TAG_LOOKUP = buildTagLookup()
 
+/** Merge cover URLs from seed for known preset entry ids (fixes stale localStorage after seed updates). */
+function mergeSeedCovers(entries: LogEntry[]): LogEntry[] {
+  const seedById = new Map(initialEntries.map((e) => [e.id, e]))
+  return entries.map((entry) => {
+    const seed = seedById.get(entry.id)
+    if (!seed?.coverUrl) return entry
+    if (entry.coverUrl) return entry
+    return { ...entry, coverUrl: seed.coverUrl }
+  })
+}
+
 function hasApiSourceUrl(entry: LogEntry): boolean {
   const url = entry.sourceUrl?.trim()
   if (!url) return false
@@ -72,6 +84,9 @@ function migrateEntry(entry: LogEntry): LogEntry {
 export function loadEntries(): LogEntry[] {
   let raw = window.localStorage.getItem(STORAGE_KEY)
   if (!raw) {
+    raw = window.localStorage.getItem(STORAGE_KEY_V2)
+  }
+  if (!raw) {
     raw = window.localStorage.getItem(STORAGE_KEY_V1)
   }
 
@@ -82,8 +97,9 @@ export function loadEntries(): LogEntry[] {
   try {
     const parsed = JSON.parse(raw) as LogEntry[]
     if (parsed.length === 0) return initialEntries
-    const migrated = parsed.map(migrateEntry)
+    const migrated = mergeSeedCovers(parsed.map(migrateEntry))
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
+    window.localStorage.removeItem(STORAGE_KEY_V2)
     window.localStorage.removeItem(STORAGE_KEY_V1)
     return migrated
   } catch {

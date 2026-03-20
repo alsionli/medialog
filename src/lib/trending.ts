@@ -6,6 +6,32 @@ const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY
 const FETCH_TIMEOUT_MS = 8000
 const isProd = import.meta.env.PROD
 
+/** TMDB screen search/trending requires a Vite env key in dev and deployment env in prod. */
+export function isTmdbConfigured(): boolean {
+  return Boolean(TMDB_API_KEY)
+}
+
+function normalizeOpenLibraryTitle(title: unknown): string {
+  if (typeof title === 'string') return title
+  if (Array.isArray(title) && title.length > 0 && typeof title[0] === 'string') {
+    return title[0]
+  }
+  return 'Untitled'
+}
+
+function openLibraryApiUrl(action: 'search' | 'trending', q?: string): string {
+  if (action === 'search') {
+    return `/api/openlibrary?action=search&q=${encodeURIComponent(q ?? '')}`
+  }
+  return '/api/openlibrary?action=trending'
+}
+
+function upscaleItunesArtwork(url: string | undefined): string | undefined {
+  if (!url) return undefined
+  if (url.includes('100x100bb')) return url.replace(/100x100bb/g, '600x600bb')
+  return url
+}
+
 async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
@@ -102,17 +128,16 @@ async function fetchScreenTrending(): Promise<MediaSuggestion[]> {
 }
 
 async function fetchBookTrending(): Promise<MediaSuggestion[]> {
-  const url = isProd ? '/api/openlibrary?action=trending' : 'https://openlibrary.org/search.json?q=fiction&sort=new&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject'
-  const response = await fetchWithTimeout(url)
+  const response = await fetchWithTimeout(openLibraryApiUrl('trending'))
 
   if (!response.ok) {
     throw new Error('Failed to fetch Open Library books.')
   }
 
   const data = (await response.json()) as {
-    docs: Array<{
+    docs?: Array<{
       key: string
-      title: string
+      title: string | string[]
       author_name?: string[]
       first_publish_year?: number
       cover_i?: number
@@ -121,7 +146,9 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
     }>
   }
 
-  const items = data.docs.map((item) => {
+  const docs = Array.isArray(data.docs) ? data.docs : []
+
+  const items = docs.map((item, index) => {
     let coverUrl: string | undefined
     if (item.cover_i) {
       coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
@@ -129,16 +156,17 @@ async function fetchBookTrending(): Promise<MediaSuggestion[]> {
       coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
     }
     const tags = item.subject?.slice(0, 3) ?? []
+    const key = item.key ?? `/works/unknown-${index}`
     return {
-      id: item.key,
+      id: key,
       category: 'book',
-      title: item.title,
+      title: normalizeOpenLibraryTitle(item.title),
       creator: item.author_name?.[0] ?? 'Unknown author',
       releaseDate: item.first_publish_year ? String(item.first_publish_year) : undefined,
       coverUrl,
       source: 'openlibrary',
       sourceLabel: 'Open Library trending',
-      sourceUrl: `https://openlibrary.org${item.key}`,
+      sourceUrl: `https://openlibrary.org${key}`,
       tags,
       duration: 300,
     }
@@ -176,7 +204,7 @@ async function fetchAlbumTrending(): Promise<MediaSuggestion[]> {
       title: item.name,
       creator: item.artistName,
       releaseDate: item.releaseDate,
-      coverUrl: item.artworkUrl100 ?? undefined,
+      coverUrl: upscaleItunesArtwork(item.artworkUrl100),
       source: 'apple-music',
       sourceLabel: 'Apple Music most played',
       sourceUrl: item.url,
@@ -268,15 +296,14 @@ async function searchScreen(query: string): Promise<MediaSuggestion[]> {
 }
 
 async function searchBook(query: string): Promise<MediaSuggestion[]> {
-  const url = isProd ? `/api/openlibrary?action=search&q=${encodeURIComponent(query)}` : `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=8&fields=key,title,author_name,first_publish_year,cover_i,isbn,subject`
-  const response = await fetchWithTimeout(url)
+  const response = await fetchWithTimeout(openLibraryApiUrl('search', query))
 
   if (!response.ok) return []
 
   const data = (await response.json()) as {
-    docs: Array<{
+    docs?: Array<{
       key: string
-      title: string
+      title: string | string[]
       author_name?: string[]
       first_publish_year?: number
       cover_i?: number
@@ -285,7 +312,9 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
     }>
   }
 
-  return data.docs.map((item) => {
+  const docs = Array.isArray(data.docs) ? data.docs : []
+
+  return docs.map((item, index) => {
     let coverUrl: string | undefined
     if (item.cover_i) {
       coverUrl = `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
@@ -293,16 +322,17 @@ async function searchBook(query: string): Promise<MediaSuggestion[]> {
       coverUrl = `https://covers.openlibrary.org/b/isbn/${item.isbn[0]}-M.jpg`
     }
     const tags = item.subject?.slice(0, 3) ?? []
+    const key = item.key ?? `/works/unknown-${index}`
     return {
-      id: item.key,
+      id: key,
       category: 'book' as const,
-      title: item.title,
+      title: normalizeOpenLibraryTitle(item.title),
       creator: item.author_name?.[0] ?? 'Unknown author',
       releaseDate: item.first_publish_year ? String(item.first_publish_year) : undefined,
       coverUrl,
       source: 'openlibrary' as const,
       sourceLabel: 'Open Library search',
-      sourceUrl: `https://openlibrary.org${item.key}`,
+      sourceUrl: `https://openlibrary.org${key}`,
       tags,
       duration: 300,
     }
@@ -323,6 +353,7 @@ async function searchAlbum(query: string): Promise<MediaSuggestion[]> {
       artistName: string
       releaseDate: string
       artworkUrl100?: string
+      artworkUrl600?: string
       collectionViewUrl?: string
       primaryGenreName?: string
     }>
@@ -336,7 +367,7 @@ async function searchAlbum(query: string): Promise<MediaSuggestion[]> {
       title: item.collectionName,
       creator: item.artistName,
       releaseDate: item.releaseDate,
-      coverUrl: item.artworkUrl100 ?? undefined,
+      coverUrl: item.artworkUrl600 ?? upscaleItunesArtwork(item.artworkUrl100),
       source: 'apple-music' as const,
       sourceLabel: 'iTunes search',
       sourceUrl: item.collectionViewUrl,

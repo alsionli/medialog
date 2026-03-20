@@ -11,6 +11,7 @@ interface CategoryDetailPageProps {
   entries: LogEntry[]
   trending: MediaSuggestion[]
   onOpenModal: (category: MediaCategory) => void
+  onEditEntry: (entry: LogEntry) => void
   onDeleteEntry: (id: string) => void
 }
 
@@ -23,6 +24,7 @@ export function CategoryDetailPage({
   entries,
   trending,
   onOpenModal,
+  onEditEntry,
   onDeleteEntry,
 }: CategoryDetailPageProps) {
   const meta = categoryDetailMeta[category]
@@ -67,6 +69,7 @@ export function CategoryDetailPage({
                   rating={isLogEntry(item) ? item.rating : undefined}
                   coverUrl={'coverUrl' in item ? item.coverUrl : undefined}
                   entryId={isLogEntry(item) ? item.id : undefined}
+                  onEdit={isLogEntry(item) ? () => onEditEntry(item) : undefined}
                   onDelete={isLogEntry(item) ? onDeleteEntry : undefined}
                 />
               ))}

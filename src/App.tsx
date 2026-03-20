@@ -6,7 +6,7 @@ import { AddEntryModal } from './components/AddEntryModal'
 import { categoryMeta } from './data/seed'
 import { fetchTagsForEntry } from './lib/fetchTags'
 import { loadEntries, saveEntries } from './lib/storage'
-import { fetchTrendingByCategory, searchByCategory } from './lib/trending'
+import { fetchTrendingByCategory, isTmdbConfigured, searchByCategory } from './lib/trending'
 import { ArchiveHomePage } from './pages/ArchiveHomePage'
 import { CategoryDetailPage } from './pages/CategoryDetailPage'
 import type { LogEntry, MediaCategory, MediaSuggestion } from './types/media'
@@ -84,8 +84,9 @@ function App() {
   })
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MediaSuggestion[]>([])
-  const [, setSearchLoading] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [addStep, setAddStep] = useState<1 | 2>(1)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
 
   useEffect(() => {
     saveEntries(entries)
@@ -176,6 +177,28 @@ function App() {
     setSearchQuery('')
     setSearchResults([])
     setAddStep(1)
+    setEditingEntryId(null)
+    setModalOpen(true)
+  }
+
+  function openModalForEdit(entry: LogEntry) {
+    setDraft({
+      category: entry.category,
+      title: entry.title,
+      creator: entry.creator,
+      rating: entry.rating,
+      notes: entry.notes ?? '',
+      releaseDate: entry.releaseDate ?? '',
+      coverUrl: entry.coverUrl ?? '',
+      sourceLabel: entry.sourceLabel ?? categoryMeta[entry.category].sourceHint,
+      sourceUrl: entry.sourceUrl ?? '',
+      tags: entry.tags ?? [],
+      duration: entry.duration ?? DEFAULT_DURATION[entry.category],
+    })
+    setSearchQuery('')
+    setSearchResults([])
+    setAddStep(2)
+    setEditingEntryId(entry.id)
     setModalOpen(true)
   }
 
@@ -206,6 +229,7 @@ function App() {
   function handleCloseModal() {
     setModalOpen(false)
     setAddStep(1)
+    setEditingEntryId(null)
   }
 
   function handleDraftChange(field: keyof EntryDraft, value: string | number) {
@@ -224,14 +248,12 @@ function App() {
       return
     }
 
-    const nextEntry: LogEntry = {
-      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()),
+    const entryData: Omit<LogEntry, 'id' | 'loggedAt'> = {
       category: draft.category,
       title: draft.title.trim(),
       creator: draft.creator.trim() || '—',
       rating: Number(draft.rating),
       notes: draft.notes.trim(),
-      loggedAt: new Date().toISOString().slice(0, 10),
       releaseDate: draft.releaseDate.trim() || undefined,
       coverUrl: draft.coverUrl || undefined,
       source: draft.sourceLabel.toLowerCase().includes('tmdb')
@@ -247,7 +269,23 @@ function App() {
       duration: draft.duration,
     }
 
-    setEntries((current) => [nextEntry, ...current])
+    if (editingEntryId) {
+      setEntries((current) =>
+        current.map((e) =>
+          e.id === editingEntryId
+            ? { ...entryData, id: e.id, loggedAt: e.loggedAt }
+            : e
+        )
+      )
+    } else {
+      const nextEntry: LogEntry = {
+        ...entryData,
+        id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()),
+        loggedAt: new Date().toISOString().slice(0, 10),
+      }
+      setEntries((current) => [nextEntry, ...current])
+    }
+
     handleCloseModal()
     navigate(`/${draft.category}`)
     setDraft(createEmptyDraft(draft.category))
@@ -279,6 +317,7 @@ function App() {
                   .sort((a, b) => b.loggedAt.localeCompare(a.loggedAt))}
                 trending={trending[category]}
                 onOpenModal={openModal}
+                onEditEntry={openModalForEdit}
                 onDeleteEntry={handleDeleteEntry}
               />
             }
@@ -293,7 +332,10 @@ function App() {
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         searchResults={searchResults}
+        searchLoading={searchLoading}
         addStep={addStep}
+        isEditing={editingEntryId !== null}
+        screenSearchBlocked={!isTmdbConfigured()}
         onBackToSearch={() => setAddStep(1)}
         onClose={handleCloseModal}
         onCategoryChange={handleCategoryChange}

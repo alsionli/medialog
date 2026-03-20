@@ -1,4 +1,4 @@
-import { DeleteLine, StarFill, StarLine } from '@mingcute/react'
+import { DeleteLine, EditLine, StarFill, StarLine } from '@mingcute/react'
 
 import { getCoverUrl } from '../lib/cover'
 import type { MediaCategory } from '../types/media'
@@ -13,6 +13,7 @@ interface DetailListRowProps {
   coverUrl?: string
   entryId?: string
   onDelete?: (id: string) => void
+  onEdit?: (id: string) => void
 }
 
 function DotVisual({ category }: { category: MediaCategory }) {
@@ -39,6 +40,7 @@ export function DetailListRow({
   coverUrl,
   entryId,
   onDelete,
+  onEdit,
 }: DetailListRowProps) {
   return (
     <article className="detail-row">
@@ -63,18 +65,35 @@ export function DetailListRow({
             ),
           )}
         </div>
-        {entryId && onDelete ? (
-          <button
-            className="detail-row__delete"
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(entryId)
-            }}
-            aria-label={`Delete ${title}`}
-          >
-            <DeleteLine size={16} strokeWidth={1.2} />
-          </button>
+        {entryId && (onEdit || onDelete) ? (
+          <div className="detail-row__action-buttons">
+            {onEdit && (
+              <button
+                className="detail-row__edit"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit(entryId)
+                }}
+                aria-label={`Edit ${title}`}
+              >
+                <EditLine size={16} strokeWidth={1.2} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                className="detail-row__delete"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(entryId)
+                }}
+                aria-label={`Delete ${title}`}
+              >
+                <DeleteLine size={16} strokeWidth={1.2} />
+              </button>
+            )}
+          </div>
         ) : null}
       </div>
     </article>

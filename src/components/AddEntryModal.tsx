@@ -31,7 +31,11 @@ interface AddEntryModalProps {
   searchQuery: string
   onSearchQueryChange: (query: string) => void
   searchResults: MediaSuggestion[]
+  searchLoading?: boolean
   addStep: 1 | 2
+  isEditing?: boolean
+  /** When true, TMDB is not configured — movie/TV search always returns empty. */
+  screenSearchBlocked?: boolean
   onBackToSearch: () => void
   onClose: () => void
   onCategoryChange: (category: MediaCategory) => void
@@ -40,7 +44,7 @@ interface AddEntryModalProps {
   onSubmit: () => void
 }
 
-const categories: MediaCategory[] = ['screen', 'book', 'album']
+const categories: MediaCategory[] = ['screen', 'album', 'book']
 
 export function AddEntryModal({
   open,
@@ -49,7 +53,10 @@ export function AddEntryModal({
   searchQuery,
   onSearchQueryChange,
   searchResults,
+  searchLoading = false,
   addStep,
+  isEditing = false,
+  screenSearchBlocked = false,
   onBackToSearch,
   onClose,
   onCategoryChange,
@@ -74,7 +81,7 @@ export function AddEntryModal({
       >
         <div className="entry-modal__header">
           <div className="entry-modal__header-left">
-            {addStep === 2 && (
+            {addStep === 2 && !isEditing && (
               <button
                 className="icon-circle-button icon-circle-button--ghost"
                 type="button"
@@ -85,7 +92,7 @@ export function AddEntryModal({
               </button>
             )}
             <h2 id="entry-modal-title">
-              {addStep === 1 ? 'New Entry' : 'Rate & Notes'}
+              {isEditing ? 'Edit Entry' : addStep === 1 ? 'New Entry' : 'Rate & Notes'}
             </h2>
           </div>
 
@@ -112,6 +119,13 @@ export function AddEntryModal({
                   ))}
                 </div>
               </div>
+
+              {screenSearchBlocked && draft.category === 'screen' ? (
+                <p className="entry-modal__api-hint" role="status">
+                  Add <code className="entry-modal__api-hint-code">VITE_TMDB_API_KEY</code> to your
+                  environment to search movies and TV. Trending fallbacks still work without it.
+                </p>
+              ) : null}
 
               <div className="entry-modal__section">
                 <label className="input-group">
@@ -142,28 +156,39 @@ export function AddEntryModal({
                   </p>
                 </div>
 
-                <div className="suggestion-scroller">
-                  {displayItems.map((item) => (
-                    <button
-                      key={item.id}
-                      className={`suggestion-card ${
-                        draft.title === item.title ? 'is-active' : ''
-                      }`}
-                      type="button"
-                      onClick={() => onSelectSuggestion(item)}
-                    >
-                      <CoverImage
-                        src={item.coverUrl}
-                        alt={item.title}
-                        className="suggestion-card__cover"
-                      />
+                <div className="suggestion-scroller suggestion-scroller--fixed-height">
+                  {searchLoading ? (
+                    <div className="suggestion-loading" aria-label="Searching">
+                      <div className="suggestion-loading__spinner" />
+                      <span className="suggestion-loading__text">Searching...</span>
+                    </div>
+                  ) : displayItems.length > 0 ? (
+                    displayItems.map((item) => (
+                      <button
+                        key={item.id}
+                        className={`suggestion-card ${
+                          draft.title === item.title ? 'is-active' : ''
+                        }`}
+                        type="button"
+                        onClick={() => onSelectSuggestion(item)}
+                      >
+                        <CoverImage
+                          src={item.coverUrl}
+                          alt={item.title}
+                          className="suggestion-card__cover"
+                        />
 
-                      <div className="suggestion-card__text">
-                        <strong>{item.title}</strong>
-                        <span>{item.creator}</span>
-                      </div>
-                    </button>
-                  ))}
+                        <div className="suggestion-card__text">
+                          <strong>{item.title}</strong>
+                          <span>{item.creator}</span>
+                        </div>
+                      </button>
+                    ))
+                  ) : searchQuery.trim() ? (
+                    <div className="suggestion-loading suggestion-loading--empty">
+                      <span className="suggestion-loading__text">No results found</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </>
@@ -237,7 +262,7 @@ export function AddEntryModal({
               onClick={onSubmit}
               disabled={!draft.rating}
             >
-              Log to archive
+              {isEditing ? 'Save changes' : 'Log to archive'}
             </button>
           </div>
         )}

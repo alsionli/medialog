@@ -1,7 +1,9 @@
-import { fallbackSuggestions, initialEntries } from '../data/seed'
+import { fallbackSuggestions, INITIAL_ENTRIES_VERSION, initialEntries } from '../data/seed'
 import type { LogEntry, MediaCategory } from '../types/media'
 
 const STORAGE_KEY = 'media-log-entries-v3'
+/** Tracks `INITIAL_ENTRIES_VERSION` from seed; preset rows sync when seed version increases. */
+const PRESET_VERSION_KEY = 'media-log-preset-version'
 const STORAGE_KEY_V2 = 'media-log-entries-v2'
 const STORAGE_KEY_V1 = 'media-log-entries-v1'
 
@@ -50,6 +52,24 @@ function mergeSeedCovers(entries: LogEntry[]): LogEntry[] {
   })
 }
 
+/** Replace preset rows (ids in `initialEntries`) with latest seed metadata; keep rating / notes / loggedAt. */
+function syncPresetRowsFromSeed(entries: LogEntry[]): LogEntry[] {
+  const seedIds = new Set(initialEntries.map((e) => e.id))
+  const prevById = new Map(entries.map((e) => [e.id, e]))
+  const userOnly = entries.filter((e) => !seedIds.has(e.id))
+  const presetSynced = initialEntries.map((seed) => {
+    const prev = prevById.get(seed.id)
+    if (!prev) return seed
+    return {
+      ...seed,
+      rating: prev.rating,
+      notes: prev.notes,
+      loggedAt: prev.loggedAt,
+    }
+  })
+  return [...presetSynced, ...userOnly]
+}
+
 function hasApiSourceUrl(entry: LogEntry): boolean {
   const url = entry.sourceUrl?.trim()
   if (!url) return false
@@ -91,18 +111,32 @@ export function loadEntries(): LogEntry[] {
   }
 
   if (!raw) {
+    if (window.localStorage.getItem(PRESET_VERSION_KEY) === null) {
+      window.localStorage.setItem(PRESET_VERSION_KEY, String(INITIAL_ENTRIES_VERSION))
+    }
     return initialEntries
   }
 
   try {
     const parsed = JSON.parse(raw) as LogEntry[]
-    if (parsed.length === 0) return initialEntries
-    const migrated = mergeSeedCovers(parsed.map(migrateEntry))
+    if (parsed.length === 0) {
+      window.localStorage.setItem(PRESET_VERSION_KEY, String(INITIAL_ENTRIES_VERSION))
+      return initialEntries
+    }
+    let migrated = mergeSeedCovers(parsed.map(migrateEntry))
+
+    const storedPresetVer = Number(window.localStorage.getItem(PRESET_VERSION_KEY) || '0')
+    if (storedPresetVer < INITIAL_ENTRIES_VERSION) {
+      migrated = syncPresetRowsFromSeed(migrated).map(migrateEntry)
+      window.localStorage.setItem(PRESET_VERSION_KEY, String(INITIAL_ENTRIES_VERSION))
+    }
+
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
     window.localStorage.removeItem(STORAGE_KEY_V2)
     window.localStorage.removeItem(STORAGE_KEY_V1)
     return migrated
   } catch {
+    window.localStorage.setItem(PRESET_VERSION_KEY, String(INITIAL_ENTRIES_VERSION))
     return initialEntries
   }
 }

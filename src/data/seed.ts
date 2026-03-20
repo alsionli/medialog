@@ -1,5 +1,11 @@
 import type { LogEntry, MediaCategory, MediaSuggestion } from '../types/media'
 
+/**
+ * Bump when built-in preset rows in `initialEntries` change (titles, covers, new rows).
+ * `storage.ts` syncs preset ids from seed when the saved version is older.
+ */
+export const INITIAL_ENTRIES_VERSION = 2
+
 export const categoryMeta: Record<
   MediaCategory,
   {

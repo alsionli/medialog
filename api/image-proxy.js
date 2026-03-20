@@ -13,7 +13,6 @@ function isAllowedUrl(url) {
   }
 }
 
-/** Real browser UA — IA / Open Library often reject generic or bot-like agents. */
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
@@ -24,6 +23,46 @@ function looksLikeImageContentType(ct) {
   if (lower.startsWith('image/')) return true
   if (lower.includes('application/octet-stream')) return true
   return false
+}
+
+/** OL sometimes sends odd types; verify actual bytes. */
+function sniffImageMimeFixed(buffer) {
+  const u8 = new Uint8Array(buffer.byteLength >= 12 ? buffer.slice(0, 12) : buffer)
+  if (u8.length >= 3 && u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) return 'image/jpeg'
+  if (u8.length >= 8 && u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4e && u8[3] === 0x47) return 'image/png'
+  if (u8.length >= 4 && u8[0] === 0x47 && u8[1] === 0x49 && u8[2] === 0x46) return 'image/gif'
+  if (
+    u8.length >= 12 &&
+    u8[0] === 0x52 &&
+    u8[1] === 0x49 &&
+    u8[2] === 0x46 &&
+    u8[8] === 0x57 &&
+    u8[9] === 0x45 &&
+    u8[10] === 0x42 &&
+    u8[11] === 0x50
+  ) {
+    return 'image/webp'
+  }
+  return null
+}
+
+/** Alternate OL cover sizes when -M is missing (common for some ISBNs). */
+function openLibraryCoverFallbackUrls(url) {
+  try {
+    const u = new URL(url)
+    if (u.hostname.toLowerCase() !== 'covers.openlibrary.org') return [url]
+    const path = u.pathname
+    if (!/\/b\/(id|isbn)\/.+-(S|M|L)\.jpg$/i.test(path)) return [url]
+    const base = path.replace(/-(S|M|L)\.jpg$/i, '')
+    const sizes = ['M', 'S', 'L']
+    return sizes.map((s) => {
+      const clone = new URL(u)
+      clone.pathname = `${base}-${s}.jpg`
+      return clone.toString()
+    })
+  } catch {
+    return [url]
+  }
 }
 
 export default async function handler(req, res) {
@@ -47,51 +86,78 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'URL not allowed' })
   }
 
+  const parsed = new URL(targetUrl)
+  const host = parsed.hostname.toLowerCase()
+  const isMzstatic = host.endsWith('.mzstatic.com') || host === 'mzstatic.com'
+  const isOpenLibrary = host === 'covers.openlibrary.org'
+
+  const baseHeaders = {
+    'User-Agent': BROWSER_UA,
+    Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  }
+  if (isMzstatic) {
+    baseHeaders.Referer = 'https://music.apple.com/'
+  }
+  if (isOpenLibrary) {
+    baseHeaders.Referer = 'https://openlibrary.org/'
+  }
+  if (host === 'image.tmdb.org') {
+    baseHeaders.Referer = 'https://www.themoviedb.org/'
+  }
+
+  const tryUrls = isOpenLibrary ? openLibraryCoverFallbackUrls(targetUrl) : [targetUrl]
+
   try {
-    const parsed = new URL(targetUrl)
-    const host = parsed.hostname.toLowerCase()
-    const isMzstatic = host.endsWith('.mzstatic.com') || host === 'mzstatic.com'
-    const isOpenLibrary = host === 'covers.openlibrary.org'
+    let lastError = 'Image fetch failed'
 
-    const headers = {
-      'User-Agent': BROWSER_UA,
-      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    }
-    if (isMzstatic) {
-      headers.Referer = 'https://music.apple.com/'
-    }
-    if (isOpenLibrary) {
-      headers.Referer = 'https://openlibrary.org/'
-    }
-    if (host === 'image.tmdb.org') {
-      headers.Referer = 'https://www.themoviedb.org/'
+    for (const tryUrl of tryUrls) {
+      if (!isAllowedUrl(tryUrl)) continue
+
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15000)
+      const response = await fetch(tryUrl, {
+        headers: baseHeaders,
+        signal: controller.signal,
+        redirect: 'follow',
+      })
+      clearTimeout(timeout)
+
+      if (!response.ok) {
+        lastError = `Image fetch failed: ${response.status}`
+        continue
+      }
+
+      const contentType = response.headers.get('content-type') || ''
+      const buffer = await response.arrayBuffer()
+
+      if (contentType.toLowerCase().includes('text/html')) {
+        lastError = 'Upstream returned HTML'
+        continue
+      }
+
+      let outType = null
+      if (looksLikeImageContentType(contentType)) {
+        outType = contentType.startsWith('image/')
+          ? contentType.split(';')[0].trim()
+          : 'image/jpeg'
+      } else {
+        const sniffed = sniffImageMimeFixed(buffer)
+        if (sniffed) {
+          outType = sniffed
+        } else {
+          lastError = 'Upstream did not return an image'
+          continue
+        }
+      }
+
+      res.setHeader('Content-Type', outType)
+      res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=604800')
+      res.send(Buffer.from(buffer))
+      return
     }
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
-    const response = await fetch(targetUrl, {
-      headers,
-      signal: controller.signal,
-      redirect: 'follow',
-    })
-    clearTimeout(timeout)
-
-    if (!response.ok) {
-      return res.status(502).json({ error: `Image fetch failed: ${response.status}` })
-    }
-
-    const contentType = response.headers.get('content-type') || ''
-    if (!looksLikeImageContentType(contentType)) {
-      return res.status(502).json({ error: 'Upstream did not return an image' })
-    }
-
-    const outType = contentType.startsWith('image/') ? contentType.split(';')[0].trim() : 'image/jpeg'
-    res.setHeader('Content-Type', outType)
-    res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=604800')
-
-    const buffer = await response.arrayBuffer()
-    res.send(Buffer.from(buffer))
+    return res.status(502).json({ error: lastError })
   } catch (err) {
     res.status(502).json({ error: err.message || 'Image proxy error' })
   }
